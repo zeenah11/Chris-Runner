@@ -50,6 +50,16 @@
             transform: translateX(-50%);
         }
         
+        .player-shielded {
+            filter: drop-shadow(0 0 20px #ffff00) brightness(1.3);
+            animation: shieldedGlow 1.5s infinite alternate;
+        }
+        
+        @keyframes shieldedGlow {
+            0% { filter: drop-shadow(0 0 15px #ffff00) brightness(1.2); }
+            100% { filter: drop-shadow(0 0 25px #ffff00) brightness(1.4); }
+        }
+        
         .obstacle {
             position: absolute;
             width: 60px;
@@ -101,6 +111,21 @@
             z-index: 5;
             animation: pulse 1s infinite alternate;
             filter: drop-shadow(0 0 5px #00f0ff) brightness(1.5);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .shield-powerup {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/BNuL3QKt_400x400-QZoFpg5A2rDpreT9CnM2QfjqmZ0rIA.jpg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 5;
+            animation: pulse 1s infinite alternate;
+            filter: drop-shadow(0 0 15px #ffff00) brightness(1.8);
             left: 50%;
             transform: translateX(-50%);
         }
@@ -191,7 +216,7 @@
             position: absolute;
             width: 1px;
             height: 100%;
-            background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.3), transparent);
+            background: linear-gradient to bottom, transparent, rgba(0, 240, 255, 0.3), transparent);
             z-index: 1;
         }
         
@@ -232,6 +257,25 @@
             100% { transform: scale(2); opacity: 0; }
         }
         
+        /* Shield collect effect */
+        .shield-collect {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-color: #ffff00;
+            border-radius: 50%;
+            z-index: 15;
+            pointer-events: none;
+            animation: shieldCollect 0.8s forwards;
+            filter: drop-shadow(0 0 15px #ffff00);
+        }
+        
+        @keyframes shieldCollect {
+            0% { transform: scale(0.5); opacity: 1; }
+            50% { transform: scale(1.5); opacity: 0.8; }
+            100% { transform: scale(2.5); opacity: 0; }
+        }
+        
         /* Crash effect */
         .crash-effect {
             position: absolute;
@@ -248,6 +292,24 @@
         @keyframes crashEffect {
             0% { transform: scale(0.5); opacity: 1; }
             100% { transform: scale(3); opacity: 0; }
+        }
+        
+        /* Shield break effect */
+        .shield-break {
+            position: absolute;
+            width: 150px;
+            height: 150px;
+            background-color: #ffff00;
+            border-radius: 50%;
+            z-index: 15;
+            pointer-events: none;
+            animation: shieldBreak 0.6s forwards;
+            filter: drop-shadow(0 0 20px #ffff00);
+        }
+        
+        @keyframes shieldBreak {
+            0% { transform: scale(0.8); opacity: 1; }
+            100% { transform: scale(2.5); opacity: 0; }
         }
         
         /* TPS counter style */
@@ -286,6 +348,33 @@
             0% { opacity: 0.3; }
             100% { opacity: 0.7; }
         }
+        
+        /* Shield indicator */
+        .shield-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 40px;
+            height: 40px;
+            background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/BNuL3QKt_400x400-QZoFpg5A2rDpreT9CnM2QfjqmZ0rIA.jpg');
+            background-size: cover;
+            background-position: center;
+            z-index: 20;
+            filter: drop-shadow(0 0 10px #ffff00) brightness(1.8);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .shield-active {
+            opacity: 1;
+            animation: shieldIndicatorPulse 1.5s infinite;
+        }
+        
+        @keyframes shieldIndicatorPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
@@ -310,12 +399,15 @@
         <!-- Player -->
         <div id="player" class="player" style="left: 33.33%; bottom: 50px;"></div>
         
+        <!-- Shield indicator -->
+        <div id="shieldIndicator" class="shield-indicator"></div>
+        
         <!-- Obstacles and coins will be added here dynamically -->
         
         <!-- Start screen -->
         <div id="startScreen" class="game-over">
             <h2 class="text-3xl font-bold mb-6 neon-text">CHRIS RUNNER</h2>
-            <p class="text-xl mb-8 text-center px-4">Use <span class="text-yellow-300">Arrow Keys</span> or <span class="text-yellow-300">W/S</span> to move<br>Use Switchboard to increase TPS<br>Avoid Melo and fast obstacles!</p>
+            <p class="text-xl mb-8 text-center px-4">Use <span class="text-yellow-300">Arrow Keys</span> or <span class="text-yellow-300">W/S</span> to move<br>Use Switchboard to increase TPS<br>Avoid Melo and fast Baba!<br>Collect <span class="text-yellow-300">Zella</span> for a shield!</p>
             <button id="startButton" class="glow-button font-bold">START RUN</button>
         </div>
         
@@ -357,9 +449,12 @@
         let playerPosition = 1; // 0: left, 1: middle, 2: right
         let obstacles = [];
         let coins = [];
+        let powerups = [];
+        let hasShield = false;
         let animationId;
         let lastObstacleTime = 0;
         let lastCoinTime = 0;
+        let lastPowerupTime = 0;
         let lastMilestone = 0;
         let lastFastObstacleTime = 0;
         let debugMode = false; // Set to true to see hitboxes
@@ -376,6 +471,7 @@
         const finalSpeedGauge = document.getElementById('finalSpeedGauge');
         const finalTpsDisplay = document.getElementById('finalTps');
         const highTpsDisplay = document.getElementById('highTps');
+        const shieldIndicator = document.getElementById('shieldIndicator');
         
         // Lane positions
         const lanePositions = ['0%', '33.33%', '66.66%'];
@@ -495,7 +591,34 @@
             }
         }
         
-        // Check if lane is clear for coin
+        // Create shield power-up
+        function createShieldPowerup() {
+            const lane = Math.floor(Math.random() * 3);
+            const powerup = document.createElement('div');
+            powerup.className = 'shield-powerup';
+            powerup.style.left = laneCenters[lane];
+            powerup.style.top = '-30px'; // Adjusted for smaller size
+            gameContainer.appendChild(powerup);
+            
+            powerups.push({
+                element: powerup,
+                lane: lane,
+                y: -30
+            });
+            
+            if (debugMode) {
+                const hitbox = document.createElement('div');
+                hitbox.className = 'debug-hitbox';
+                hitbox.style.width = '20px';
+                hitbox.style.height = '20px';
+                hitbox.style.left = `calc(${laneCenters[lane]} - 10px)`;
+                hitbox.style.top = '-30px';
+                gameContainer.appendChild(hitbox);
+                powerup._debugHitbox = hitbox;
+            }
+        }
+        
+        // Check if lane is clear for coin or powerup
         function isLaneClear(lane) {
             for (const obstacle of obstacles) {
                 if (obstacle.lane === lane && obstacle.y > -100 && obstacle.y < 100) {
@@ -554,6 +677,34 @@
             }, 600);
         }
         
+        // Create shield collection effect
+        function createShieldEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'shield-collect';
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            gameContainer.appendChild(effect);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                effect.remove();
+            }, 800);
+        }
+        
+        // Create shield break effect
+        function createShieldBreakEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'shield-break';
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            gameContainer.appendChild(effect);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                effect.remove();
+            }, 600);
+        }
+        
         // Create crash effect
         function createCrashEffect(x, y) {
             const effect = document.createElement('div');
@@ -566,6 +717,24 @@
             setTimeout(() => {
                 effect.remove();
             }, 800);
+        }
+        
+        // Add shield to player
+        function addShield() {
+            if (hasShield) return; // Already has shield
+            
+            hasShield = true;
+            shieldIndicator.classList.add('shield-active');
+            player.classList.add('player-shielded'); // Add glowing effect to player
+        }
+        
+        // Remove shield from player
+        function removeShield() {
+            if (!hasShield) return;
+            
+            hasShield = false;
+            shieldIndicator.classList.remove('shield-active');
+            player.classList.remove('player-shielded'); // Remove glowing effect
         }
         
         // Check collision between player and object
@@ -606,9 +775,10 @@
         function update() {
             const now = Date.now();
             
-            // Create new obstacles and coins (slower spawn rate at start)
+            // Create new obstacles, coins and powerups (slower spawn rate at start)
             const obstacleInterval = tps < 100000 ? 3000 / speed : 1500 / speed;
             const coinInterval = tps < 100000 ? 4000 / speed : 2000 / speed;
+            const powerupInterval = tps < 100000 ? 10000 / speed : 5000 / speed;
             const fastObstacleInterval = tps < 50000 ? 10000 / speed : 5000 / speed;
             
             if (now - lastObstacleTime > obstacleInterval) {
@@ -619,6 +789,11 @@
             if (now - lastCoinTime > coinInterval) {
                 createCoin();
                 lastCoinTime = now;
+            }
+            
+            if (now - lastPowerupTime > powerupInterval && !hasShield) {
+                createShieldPowerup();
+                lastPowerupTime = now;
             }
             
             // Random fast obstacles
@@ -650,15 +825,33 @@
                 
                 // Check collision with player
                 if (obstacle.lane === playerPosition && checkCollision(obstacle)) {
-                    // Get obstacle position for crash effect
-                    const rect = obstacle.element.getBoundingClientRect();
-                    const gameRect = gameContainer.getBoundingClientRect();
-                    const x = rect.left - gameRect.left + rect.width / 2;
-                    const y = rect.top - gameRect.top + rect.height / 2;
+                    if (hasShield) {
+                        // Shield protects from one hit
+                        removeShield();
+                        
+                        // Get obstacle position for shield break effect
+                        const rect = obstacle.element.getBoundingClientRect();
+                        const gameRect = gameContainer.getBoundingClientRect();
+                        const x = rect.left - gameRect.left + rect.width / 2;
+                        const y = rect.top - gameRect.top + rect.height / 2;
+                        
+                        createShieldBreakEffect(x, y);
+                    } else {
+                        // Get obstacle position for crash effect
+                        const rect = obstacle.element.getBoundingClientRect();
+                        const gameRect = gameContainer.getBoundingClientRect();
+                        const x = rect.left - gameRect.left + rect.width / 2;
+                        const y = rect.top - gameRect.top + rect.height / 2;
+                        
+                        createCrashEffect(x, y);
+                        gameOver();
+                        return;
+                    }
                     
-                    createCrashEffect(x, y);
-                    gameOver();
-                    return;
+                    // Remove the obstacle after collision
+                    obstacle.element.remove();
+                    if (obstacle._debugHitbox) obstacle._debugHitbox.remove();
+                    obstacles.splice(i, 1);
                 }
                 
                 // Remove if out of screen
@@ -710,6 +903,44 @@
                 }
             }
             
+            // Move powerups
+            for (let i = powerups.length - 1; i >= 0; i--) {
+                const powerup = powerups[i];
+                powerup.y += gameSpeed * speed;
+                powerup.element.style.top = `${powerup.y}px`;
+                
+                // Check collision with player
+                if (powerup.lane === playerPosition && checkCollision(powerup)) {
+                    // Add shield to player
+                    addShield();
+                    
+                    // Get powerup position for collection effect
+                    const rect = powerup.element.getBoundingClientRect();
+                    const gameRect = gameContainer.getBoundingClientRect();
+                    const x = rect.left - gameRect.left + rect.width / 2;
+                    const y = rect.top - gameRect.top + rect.height / 2;
+                    
+                    createShieldEffect(x, y);
+                    
+                    powerup.element.remove();
+                    if (powerup._debugHitbox) powerup._debugHitbox.remove();
+                    powerups.splice(i, 1);
+                    
+                    // Visual feedback for powerup collection
+                    player.style.transform = 'translateX(-50%) scale(1.3)';
+                    setTimeout(() => {
+                        player.style.transform = 'translateX(-50%) scale(1)';
+                    }, 100);
+                }
+                
+                // Remove if out of screen
+                if (powerup.y > 600) {
+                    powerup.element.remove();
+                    if (powerup._debugHitbox) powerup._debugHitbox.remove();
+                    powerups.splice(i, 1);
+                }
+            }
+            
             // Increase speed based on TPS - now increases every 10,000 TPS
             speed = 1 + (tps / 10000); // Changed from 200000 to 10000
             
@@ -726,6 +957,9 @@
             
             // Remove running animation
             player.classList.remove('running');
+            
+            // Remove shield if active
+            removeShield();
             
             // Update high TPS
             if (tps > highTps) {
@@ -758,6 +992,7 @@
             speed = 1;
             playerPosition = 1;
             lastMilestone = 0;
+            hasShield = false;
             player.style.left = laneCenters[playerPosition];
             
             // Update TPS display
@@ -766,7 +1001,7 @@
             // Add running animation
             player.classList.add('running');
             
-            // Clear obstacles and coins
+            // Clear obstacles, coins and powerups
             obstacles.forEach(obstacle => {
                 obstacle.element.remove();
                 if (obstacle._debugHitbox) obstacle._debugHitbox.remove();
@@ -775,17 +1010,25 @@
                 coin.element.remove();
                 if (coin._debugHitbox) coin._debugHitbox.remove();
             });
+            powerups.forEach(powerup => {
+                powerup.element.remove();
+                if (powerup._debugHitbox) powerup._debugHitbox.remove();
+            });
             obstacles = [];
             coins = [];
+            powerups = [];
             
             // Update UI
             speedGauge.style.width = '0%';
+            shieldIndicator.classList.remove('shield-active');
+            player.classList.remove('player-shielded');
             startScreen.classList.add('hidden');
             gameOverScreen.classList.add('hidden');
             
             // Start game loop
             lastObstacleTime = Date.now();
             lastCoinTime = Date.now();
+            lastPowerupTime = Date.now();
             lastFastObstacleTime = Date.now();
             update();
         }
