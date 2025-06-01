@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chris Runner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+        
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #0a0a1a;
+            overflow: hidden;
+            color: #00f0ff;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            height: 600px;
+            margin: 0 auto;
+            background-color: #050510;
+            border: 2px solid #00f0ff;
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.5);
+            overflow: hidden;
+        }
+        
+        .lane {
+            position: absolute;
+            width: 33.33%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+        }
+        
+        .player {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/IMG_20240429_235144-removebg-preview-7MaRq68EuTXzRLgTbqYUCadEiK29JV.png');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 10;
+            transition: left 0.2s ease-out;
+            filter: drop-shadow(0 0 5px #00f0ff);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .obstacle {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/PKzV7G2Q_400x400-YW57copKwqeFrSaWFcmcsyIdqbeESP.jpg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 5;
+            filter: drop-shadow(0 0 5px #ff0033) brightness(1.5);
+            animation: obstaclePulse 1s infinite alternate;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        @keyframes obstaclePulse {
+            0% { transform: translateX(-50%) scale(1); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1.05); opacity: 0.9; }
+        }
+        
+        .coin {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/IMG_1050%20%282%29-MKnTRQ5YhtWIBAmBmIEqxph7u5C7tS.webp');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 5;
+            animation: pulse 1s infinite alternate;
+            filter: drop-shadow(0 0 5px #00f0ff) brightness(1.5);
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        @keyframes pulse {
+            0% { transform: translateX(-50%) scale(1); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1.2); opacity: 0.8; }
+        }
+        
+        .neon-text {
+            text-shadow: 0 0 5px #00f0ff, 0 0 10px #00f0ff, 0 0 15px #00f0ff;
+        }
+        
+        .glow-button {
+            background-color: #00f0ff;
+            color: #050510;
+            border: none;
+            padding: 12px 24px;
+            font-size: 18px;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.7);
+            font-weight: bold;
+            letter-spacing: 1px;
+        }
+        
+        .glow-button:hover {
+            box-shadow: 0 0 25px rgba(0, 240, 255, 0.9);
+            transform: scale(1.05);
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(5, 5, 16, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        
+        .speed-gauge {
+            position: relative;
+            width: 100px;
+            height: 10px;
+            background: rgba(0, 240, 255, 0.2);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        
+        .speed-fill {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(90deg, #00a0ff, #00f0ff);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        
+        /* Running animation */
+        @keyframes run {
+            0% { transform: translateX(-50%) translateY(0px); }
+            50% { transform: translateX(-50%) translateY(-5px); }
+            100% { transform: translateX(-50%) translateY(0px); }
+        }
+        
+        .running {
+            animation: run 0.5s infinite;
+        }
+        
+        /* Lane indicators */
+        .lane-divider {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(0, 240, 255, 0.1);
+            z-index: 1;
+        }
+        
+        /* Vertical lane dividers */
+        .vertical-divider {
+            position: absolute;
+            width: 1px;
+            height: 100%;
+            background: linear-gradient to bottom, transparent, rgba(0, 240, 255, 0.3), transparent);
+            z-index: 1;
+        }
+        
+        .vertical-divider.left {
+            left: 33.33%;
+        }
+        
+        .vertical-divider.right {
+            left: 66.66%;
+        }
+        
+        /* TPS counter animation */
+        @keyframes tpsPulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        
+        .tps-pulse {
+            animation: tpsPulse 0.5s;
+        }
+        
+        /* Coin collection effect */
+        .coin-collect {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background-color: #00f0ff;
+            border-radius: 50%;
+            z-index: 15;
+            pointer-events: none;
+            animation: coinCollect 0.6s forwards;
+            filter: drop-shadow(0 0 5px #00f0ff);
+        }
+        
+        @keyframes coinCollect {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2); opacity: 0; }
+        }
+        
+        /* Crash effect */
+        .crash-effect {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            background-color: #ff0033;
+            border-radius: 50%;
+            z-index: 15;
+            pointer-events: none;
+            animation: crashEffect 0.8s forwards;
+            filter: drop-shadow(0 0 10px #ff0033);
+        }
+        
+        @keyframes crashEffect {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(3); opacity: 0; }
+        }
+        
+        /* TPS counter style */
+        .tps-counter {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #00f0ff;
+            text-shadow: 0 0 5px #00f0ff;
+        }
+        
+        .tps-label {
+            font-size: 0.8rem;
+            color: rgba(0, 240, 255, 0.7);
+            margin-right: 5px;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+    <h1 class="text-4xl font-bold mb-4 neon-text">CHRIS RUNNER</h1>
+    
+    <div class="game-container">
+        <!-- Vertical lane dividers -->
+        <div class="vertical-divider left"></div>
+        <div class="vertical-divider right"></div>
+        
+        <!-- Horizontal lane dividers -->
+        <div class="lane-divider" style="top: 20%;"></div>
+        <div class="lane-divider" style="top: 40%;"></div>
+        <div class="lane-divider" style="top: 60%;"></div>
+        <div class="lane-divider" style="top: 80%;"></div>
+        
+        <!-- Lanes -->
+        <div class="lane" style="left: 0;"></div>
+        <div class="lane" style="left: 33.33%;"></div>
+        <div class="lane" style="left: 66.66%;"></div>
+        
+        <!-- Player -->
+        <div id="player" class="player" style="left: 33.33%; bottom: 50px;"></div>
+        
+        <!-- Obstacles and coins will be added here dynamically -->
+        
+        <!-- Start screen -->
+        <div id="startScreen" class="game-over">
+            <h2 class="text-3xl font-bold mb-6 neon-text">CHRIS RUNNER</h2>
+            <p class="text-xl mb-8 text-center px-4">Use <span class="text-yellow-300">Arrow Keys</span> or <span class="text-yellow-300">W/S</span> to move<br>Use Switchboard to increase TPS<br>Avoid Melo</p>
+            <button id="startButton" class="glow-button font-bold">START RUN</button>
+        </div>
+        
+        <!-- Game over screen -->
+        <div id="gameOverScreen" class="game-over hidden">
+            <h2 class="text-3xl font-bold mb-4 neon-text">GAME OVER</h2>
+            <p class="text-xl mb-2">Final TPS: <span id="finalTps" class="font-bold">0</span></p>
+            <p class="text-xl mb-2">High TPS: <span id="highTps" class="font-bold">0</span></p>
+            <div class="flex items-center mt-2 mb-6">
+                <span class="mr-2">Speed:</span>
+                <div class="speed-gauge">
+                    <div id="finalSpeedGauge" class="speed-fill" style="width: 0%"></div>
+                </div>
+            </div>
+            <button id="restartButton" class="glow-button font-bold">TRY AGAIN</button>
+        </div>
+    </div>
+    
+    <div class="flex justify-between w-full max-w-md mt-4">
+        <div class="flex items-center">
+            <span class="tps-label">TPS:</span>
+            <span id="tpsCounter" class="tps-counter">1000</span>
+        </div>
+        <div class="flex items-center">
+            <span class="text-xl mr-2">Speed:</span>
+            <div class="speed-gauge">
+                <div id="speedGauge" class="speed-fill" style="width: 0%"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Game variables
+        let gameRunning = false;
+        let tps = 1000; // Starting TPS
+        let highTps = localStorage.getItem('highTps') || 0;
+        let speed = 1;
+        let gameSpeed = 5;
+        let playerPosition = 1; // 0: left, 1: middle, 2: right
+        let obstacles = [];
+        let coins = [];
+        let animationId;
+        let lastObstacleTime = 0;
+        let lastCoinTime = 0;
+        let lastMilestone = 0;
+        
+        // DOM elements
+        const gameContainer = document.querySelector('.game-container');
+        const player = document.getElementById('player');
+        const startScreen = document.getElementById('startScreen');
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const startButton = document.getElementById('startButton');
+        const restartButton = document.getElementById('restartButton');
+        const tpsCounter = document.getElementById('tpsCounter');
+        const speedGauge = document.getElementById('speedGauge');
+        const finalSpeedGauge = document.getElementById('finalSpeedGauge');
+        const finalTpsDisplay = document.getElementById('finalTps');
+        const highTpsDisplay = document.getElementById('highTps');
+        
+        // Lane positions
+        const lanePositions = ['0%', '33.33%', '66.66%'];
+        const laneCenters = ['16.665%', '50%', '83.33%'];
+        
+        // Event listeners
+        startButton.addEventListener('click', startGame);
+        restartButton.addEventListener('click', startGame);
+        
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning) return;
+            
+            if (e.key === 'ArrowLeft' || e.key === 'a') {
+                movePlayer(-1);
+            } else if (e.key === 'ArrowRight' || e.key === 'd') {
+                movePlayer(1);
+            } else if (e.key === 'w' || e.key === 'W') {
+                movePlayer(-1); // W moves left
+            } else if (e.key === 's' || e.key === 'S') {
+                movePlayer(1); // S moves right
+            }
+        });
+        
+        // Touch controls for mobile
+        let touchStartX = 0;
+        
+        gameContainer.addEventListener('touchstart', (e) => {
+            if (!gameRunning) return;
+            touchStartX = e.touches[0].clientX;
+        });
+        
+        gameContainer.addEventListener('touchend', (e) => {
+            if (!gameRunning) return;
+            const touchEndX = e.changedTouches[0].clientX;
+            const diff = touchStartX - touchEndX;
+            
+            if (diff > 50) { // Swipe left
+                movePlayer(1);
+            } else if (diff < -50) { // Swipe right
+                movePlayer(-1);
+            }
+        });
+        
+        // Move player
+        function movePlayer(direction) {
+            playerPosition += direction;
+            
+            if (playerPosition < 0) playerPosition = 0;
+            if (playerPosition > 2) playerPosition = 2;
+            
+            player.style.left = laneCenters[playerPosition];
+        }
+        
+        // Create obstacle
+        function createObstacle() {
+            const lane = Math.floor(Math.random() * 3);
+            const obstacle = document.createElement('div');
+            obstacle.className = 'obstacle';
+            obstacle.style.left = laneCenters[lane];
+            obstacle.style.top = '-60px';
+            gameContainer.appendChild(obstacle);
+            
+            obstacles.push({
+                element: obstacle,
+                lane: lane,
+                y: -60
+            });
+        }
+        
+        // Create coin
+        function createCoin() {
+            const lane = Math.floor(Math.random() * 3);
+            const coin = document.createElement('div');
+            coin.className = 'coin';
+            coin.style.left = laneCenters[lane];
+            coin.style.top = '-30px';
+            gameContainer.appendChild(coin);
+            
+            coins.push({
+                element: coin,
+                lane: lane,
+                y: -30
+            });
+        }
+        
+        // Create coin collection effect
+        function createCoinEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'coin-collect';
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            gameContainer.appendChild(effect);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                effect.remove();
+            }, 600);
+        }
+        
+        // Create crash effect
+        function createCrashEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'crash-effect';
+            effect.style.left = `${x}px`;
+            effect.style.top = `${y}px`;
+            gameContainer.appendChild(effect);
+            
+            // Remove after animation completes
+            setTimeout(() => {
+                effect.remove();
+            }, 800);
+        }
+        
+        // Check collision between player and object
+        function checkCollision(playerPos, objPos, objHeight) {
+            // Player hitbox (adjusted to be more responsive)
+            const playerTop = 520; // Player's top position (bottom of screen - player height)
+            const playerBottom = 600; // Bottom of screen
+            const playerHitboxTop = playerTop + 10; // Smaller hitbox for more responsive collision
+            const playerHitboxBottom = playerBottom - 10;
+            
+            // Object hitbox
+            const objTop = objPos.y;
+            const objBottom = objPos.y + objHeight;
+            
+            // Check if object is within player's vertical range
+            return (objBottom > playerHitboxTop && objTop < playerHitboxBottom);
+        }
+        
+        // Update game state
+        function update() {
+            const now = Date.now();
+            
+            // Create new obstacles and coins
+            if (now - lastObstacleTime > 1500 / speed) {
+                createObstacle();
+                lastObstacleTime = now;
+            }
+            
+            if (now - lastCoinTime > 2500 / speed) {
+                createCoin();
+                lastCoinTime = now;
+            }
+            
+            // Check for TPS milestones (every 2000 TPS)
+            if (tps >= lastMilestone + 2000) {
+                lastMilestone = tps;
+                // Spawn additional obstacles when reaching milestones
+                for (let i = 0; i < 2; i++) {
+                    setTimeout(() => createObstacle(), i * 300);
+                }
+            }
+            
+            // Move obstacles
+            for (let i = obstacles.length - 1; i >= 0; i--) {
+                const obstacle = obstacles[i];
+                obstacle.y += gameSpeed * speed;
+                obstacle.element.style.top = `${obstacle.y}px`;
+                
+                // Check collision with player
+                if (
+                    obstacle.lane === playerPosition && 
+                    checkCollision(playerPosition, obstacle, 60)
+                ) {
+                    // Get obstacle position for crash effect
+                    const rect = obstacle.element.getBoundingClientRect();
+                    const gameRect = gameContainer.getBoundingClientRect();
+                    const x = rect.left - gameRect.left + rect.width / 2;
+                    const y = rect.top - gameRect.top + rect.height / 2;
+                    
+                    createCrashEffect(x, y);
+                    gameOver();
+                    return;
+                }
+                
+                // Remove if out of screen
+                if (obstacle.y > 600) {
+                    obstacle.element.remove();
+                    obstacles.splice(i, 1);
+                }
+            }
+            
+            // Move coins
+            for (let i = coins.length - 1; i >= 0; i--) {
+                const coin = coins[i];
+                coin.y += gameSpeed * speed;
+                coin.element.style.top = `${coin.y}px`;
+                
+                // Check collision with player
+                if (
+                    coin.lane === playerPosition && 
+                    checkCollision(playerPosition, coin, 30)
+                ) {
+                    // Each coin collected adds 1000 TPS
+                    tps += 1000;
+                    tpsCounter.textContent = tps;
+                    tpsCounter.classList.add('tps-pulse');
+                    setTimeout(() => tpsCounter.classList.remove('tps-pulse'), 500);
+                    
+                    // Get coin position for collection effect
+                    const rect = coin.element.getBoundingClientRect();
+                    const gameRect = gameContainer.getBoundingClientRect();
+                    const x = rect.left - gameRect.left + rect.width / 2;
+                    const y = rect.top - gameRect.top + rect.height / 2;
+                    
+                    createCoinEffect(x, y);
+                    
+                    coin.element.remove();
+                    coins.splice(i, 1);
+                    
+                    // Visual feedback for coin collection
+                    player.style.transform = 'translateX(-50%) scale(1.2)';
+                    setTimeout(() => {
+                        player.style.transform = 'translateX(-50%) scale(1)';
+                    }, 100);
+                }
+                
+                // Remove if out of screen
+                if (coin.y > 600) {
+                    coin.element.remove();
+                    coins.splice(i, 1);
+                }
+            }
+            
+            // Increase speed based on TPS
+            speed = 1 + Math.floor(tps / 2000) * 0.2;
+            const speedPercentage = Math.min(100, (speed - 1) / 3 * 100);
+            speedGauge.style.width = `${speedPercentage}%`;
+            
+            animationId = requestAnimationFrame(update);
+        }
+        
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            cancelAnimationFrame(animationId);
+            
+            // Remove running animation
+            player.classList.remove('running');
+            
+            // Update high TPS
+            if (tps > highTps) {
+                highTps = tps;
+                localStorage.setItem('highTps', highTps);
+            }
+            
+            // Display final TPS
+            finalTpsDisplay.textContent = tps;
+            highTpsDisplay.textContent = highTps;
+            
+            // Set final speed gauge
+            const speedPercentage = Math.min(100, (speed - 1) / 3 * 100);
+            finalSpeedGauge.style.width = `${speedPercentage}%`;
+            
+            gameOverScreen.classList.remove('hidden');
+            
+            // Visual feedback for crash
+            gameContainer.style.boxShadow = '0 0 30px rgba(255, 0, 51, 0.8)';
+            setTimeout(() => {
+                gameContainer.style.boxShadow = '0 0 20px rgba(0, 240, 255, 0.5)';
+            }, 500);
+        }
+        
+        // Start game
+        function startGame() {
+            // Reset game state
+            gameRunning = true;
+            tps = 1000; // Reset to starting TPS
+            speed = 1;
+            playerPosition = 1;
+            lastMilestone = 0;
+            player.style.left = laneCenters[playerPosition];
+            
+            // Update TPS display
+            tpsCounter.textContent = tps;
+            
+            // Add running animation
+            player.classList.add('running');
+            
+            // Clear obstacles and coins
+            obstacles.forEach(obstacle => obstacle.element.remove());
+            coins.forEach(coin => coin.element.remove());
+            obstacles = [];
+            coins = [];
+            
+            // Update UI
+            speedGauge.style.width = '0%';
+            startScreen.classList.add('hidden');
+            gameOverScreen.classList.add('hidden');
+            
+            // Start game loop
+            lastObstacleTime = Date.now();
+            lastCoinTime = Date.now();
+            update();
+        }
+    </script>
+</body>
+</html>
