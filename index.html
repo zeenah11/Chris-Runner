@@ -411,7 +411,7 @@
                 hitbox.style.height = '40px';
                 hitbox.style.left = `calc(${laneCenters[lane]} - 20px)`;
                 hitbox.style.top = '-60px';
-                gameContainer.appendChild(hitbox);
+                gameContainer.appendChild(hotbox);
                 obstacle._debugHitbox = hitbox;
             }
         }
@@ -523,8 +523,8 @@
                 lastCoinTime = now;
             }
             
-            // Check for TPS milestones (every 100,000 TPS)
-            if (tps >= lastMilestone + 100000) {
+            // Check for TPS milestones (every 10,000 TPS)
+            if (tps >= lastMilestone + 10000) {
                 lastMilestone = tps;
                 // Spawn additional obstacles when reaching milestones
                 for (let i = 0; i < 2; i++) {
@@ -567,7 +567,7 @@
                 
                 // Check collision with player
                 if (coin.lane === playerPosition && checkCollision(coin)) {
-                    // Each coin collected adds 1000 TPS (changed from 10000)
+                    // Each coin collected adds 1000 TPS
                     tps += 1000;
                     tpsCounter.textContent = tps;
                     tpsCounter.classList.add('tps-pulse');
@@ -600,10 +600,10 @@
                 }
             }
             
-            // Increase speed based on TPS - now starts increasing immediately but at half the rate
-            speed = 1 + (tps / 200000); // Half the speed increase (200,000 TPS for +1 speed)
+            // Increase speed based on TPS - now increases every 10,000 TPS
+            speed = 1 + (tps / 10000); // Changed from 200000 to 10000
             
-            const speedPercentage = Math.min(100, (speed - 1) * 100);
+            const speedPercentage = Math.min(100, (speed - 1) * 10); // Adjusted multiplier since speed increases faster
             speedGauge.style.width = `${speedPercentage}%`;
             
             animationId = requestAnimationFrame(update);
@@ -628,7 +628,7 @@
             highTpsDisplay.textContent = highTps;
             
             // Set final speed gauge
-            const speedPercentage = Math.min(100, (speed - 1) * 100);
+            const speedPercentage = Math.min(100, (speed - 1) * 10);
             finalSpeedGauge.style.width = `${speedPercentage}%`;
             
             gameOverScreen.classList.remove('hidden');
