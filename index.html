@@ -65,9 +65,29 @@
             transform: translateX(-50%);
         }
         
+        .fast-obstacle {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/D2fHDbZh_400x400-ZdpbaLDXCxWSH5usHtXXeNN77wpSoS.jpg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            z-index: 5;
+            filter: drop-shadow(0 0 5px #ff00ff) brightness(1.5);
+            animation: fastObstaclePulse 0.5s infinite alternate;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
         @keyframes obstaclePulse {
             0% { transform: translateX(-50%) scale(1); opacity: 1; }
             100% { transform: translateX(-50%) scale(1.05); opacity: 0.9; }
+        }
+        
+        @keyframes fastObstaclePulse {
+            0% { transform: translateX(-50%) scale(1); opacity: 1; }
+            100% { transform: translateX(-50%) scale(1.1); opacity: 0.8; }
         }
         
         .coin {
@@ -77,7 +97,7 @@
             background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/IMG_1050%20%282%29-MKnTRQ5YhtWIBAmBmIEqxph7u5C7tS.webp');
             background-size: contain;
             background-repeat: no-repeat;
-            background_position: center;
+            background-position: center;
             z-index: 5;
             animation: pulse 1s infinite alternate;
             filter: drop-shadow(0 0 5px #00f0ff) brightness(1.5);
@@ -171,7 +191,7 @@
             position: absolute;
             width: 1px;
             height: 100%;
-            background: linear-gradient to bottom, transparent, rgba(0, 240, 255, 0.3), transparent);
+            background: linear-gradient(to bottom, transparent, rgba(0, 240, 255, 0.3), transparent);
             z-index: 1;
         }
         
@@ -251,6 +271,21 @@
             border: 1px solid red;
             z-index: 100;
         }
+        
+        /* Fast obstacle warning */
+        .fast-warning {
+            position: absolute;
+            width: 100%;
+            height: 20px;
+            background-color: rgba(255, 0, 255, 0.3);
+            z-index: 4;
+            animation: warningFlash 0.5s infinite alternate;
+        }
+        
+        @keyframes warningFlash {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.7; }
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
@@ -280,7 +315,7 @@
         <!-- Start screen -->
         <div id="startScreen" class="game-over">
             <h2 class="text-3xl font-bold mb-6 neon-text">CHRIS RUNNER</h2>
-            <p class="text-xl mb-8 text-center px-4">Use <span class="text-yellow-300">Arrow Keys</span> or <span class="text-yellow-300">W/S</span> to move<br>Use Switchboard to increase TPS<br>Avoid Melo</p>
+            <p class="text-xl mb-8 text-center px-4">Use <span class="text-yellow-300">Arrow Keys</span> or <span class="text-yellow-300">W/S</span> to move<br>Use Switchboard to increase TPS<br>Avoid Melo and fast obstacles!</p>
             <button id="startButton" class="glow-button font-bold">START RUN</button>
         </div>
         
@@ -326,6 +361,7 @@
         let lastObstacleTime = 0;
         let lastCoinTime = 0;
         let lastMilestone = 0;
+        let lastFastObstacleTime = 0;
         let debugMode = false; // Set to true to see hitboxes
         
         // DOM elements
@@ -401,7 +437,9 @@
             obstacles.push({
                 element: obstacle,
                 lane: lane,
-                y: -60
+                y: -60,
+                speed: 1, // Normal speed
+                type: 'normal'
             });
             
             if (debugMode) {
@@ -411,14 +449,73 @@
                 hitbox.style.height = '40px';
                 hitbox.style.left = `calc(${laneCenters[lane]} - 20px)`;
                 hitbox.style.top = '-60px';
-                gameContainer.appendChild(hotbox);
+                gameContainer.appendChild(hitbox);
                 obstacle._debugHitbox = hitbox;
             }
         }
         
+        // Create fast obstacle
+        function createFastObstacle() {
+            const lane = Math.floor(Math.random() * 3);
+            
+            // Add warning effect
+            const warning = document.createElement('div');
+            warning.className = 'fast-warning';
+            warning.style.top = '-20px';
+            gameContainer.appendChild(warning);
+            
+            // Remove warning after short delay
+            setTimeout(() => {
+                warning.remove();
+            }, 500);
+            
+            const obstacle = document.createElement('div');
+            obstacle.className = 'fast-obstacle';
+            obstacle.style.left = laneCenters[lane];
+            obstacle.style.top = '-60px';
+            gameContainer.appendChild(obstacle);
+            
+            obstacles.push({
+                element: obstacle,
+                lane: lane,
+                y: -60,
+                speed: 1.5, // Reduced speed (was 3)
+                type: 'fast'
+            });
+            
+            if (debugMode) {
+                const hitbox = document.createElement('div');
+                hitbox.className = 'debug-hitbox';
+                hitbox.style.width = '40px';
+                hitbox.style.height = '40px';
+                hitbox.style.left = `calc(${laneCenters[lane]} - 20px)`;
+                hitbox.style.top = '-60px';
+                gameContainer.appendChild(hitbox);
+                obstacle._debugHitbox = hitbox;
+            }
+        }
+        
+        // Check if lane is clear for coin
+        function isLaneClear(lane) {
+            for (const obstacle of obstacles) {
+                if (obstacle.lane === lane && obstacle.y > -100 && obstacle.y < 100) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
         // Create coin
         function createCoin() {
-            const lane = Math.floor(Math.random() * 3);
+            // Try to find a clear lane
+            let attempts = 0;
+            let lane;
+            do {
+                lane = Math.floor(Math.random() * 3);
+                attempts++;
+                if (attempts > 10) return; // Give up if we can't find a clear lane
+            } while (!isLaneClear(lane));
+            
             const coin = document.createElement('div');
             coin.className = 'coin';
             coin.style.left = laneCenters[lane];
@@ -512,6 +609,7 @@
             // Create new obstacles and coins (slower spawn rate at start)
             const obstacleInterval = tps < 100000 ? 3000 / speed : 1500 / speed;
             const coinInterval = tps < 100000 ? 4000 / speed : 2000 / speed;
+            const fastObstacleInterval = tps < 50000 ? 10000 / speed : 5000 / speed;
             
             if (now - lastObstacleTime > obstacleInterval) {
                 createObstacle();
@@ -523,19 +621,31 @@
                 lastCoinTime = now;
             }
             
+            // Random fast obstacles
+            if (now - lastFastObstacleTime > fastObstacleInterval && Math.random() < 0.3) {
+                createFastObstacle();
+                lastFastObstacleTime = now;
+            }
+            
             // Check for TPS milestones (every 10,000 TPS)
             if (tps >= lastMilestone + 10000) {
                 lastMilestone = tps;
                 // Spawn additional obstacles when reaching milestones
                 for (let i = 0; i < 2; i++) {
-                    setTimeout(() => createObstacle(), i * 300);
+                    setTimeout(() => {
+                        if (Math.random() < 0.3) {
+                            createFastObstacle();
+                        } else {
+                            createObstacle();
+                        }
+                    }, i * 300);
                 }
             }
             
             // Move obstacles
             for (let i = obstacles.length - 1; i >= 0; i--) {
                 const obstacle = obstacles[i];
-                obstacle.y += gameSpeed * speed;
+                obstacle.y += gameSpeed * speed * obstacle.speed;
                 obstacle.element.style.top = `${obstacle.y}px`;
                 
                 // Check collision with player
@@ -676,6 +786,7 @@
             // Start game loop
             lastObstacleTime = Date.now();
             lastCoinTime = Date.now();
+            lastFastObstacleTime = Date.now();
             update();
         }
     </script>
