@@ -955,10 +955,6 @@
             gameRunning = false;
             cancelAnimationFrame(animationId);
             
-            // Stop background music and reset to start
-            music.pause();
-            music.currentTime = 0;
-            
             // Remove running animation
             player.classList.remove('running');
             
@@ -1035,14 +1031,7 @@
             lastPowerupTime = Date.now();
             lastFastObstacleTime = Date.now();
             update();
-            // Play background music on start
-            const music = new Audio('bg-music.mp3');
-            music.loop = true;
-            music.volume = 0.5;
-
-            document.getElementById("start-button").addEventListener("click", () => {
-                music.play();
-});
+        }
     </script>
 </body>
 </html>
