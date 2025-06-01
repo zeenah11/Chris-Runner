@@ -44,7 +44,7 @@
             background-repeat: no-repeat;
             background-position: center;
             z-index: 10;
-            transition: left 0.2s ease-out;
+            transition: left 0.3s ease-out;
             filter: drop-shadow(0 0 5px #00f0ff);
             left: 50%;
             transform: translateX(-50%);
@@ -77,7 +77,7 @@
             background-image: url('https://lqy3lriiybxcejon.public.blob.vercel-storage.com/7975c4ba-665d-4353-9a9f-635d084887f2/IMG_1050%20%282%29-MKnTRQ5YhtWIBAmBmIEqxph7u5C7tS.webp');
             background-size: contain;
             background-repeat: no-repeat;
-            background-position: center;
+            background_position: center;
             z-index: 5;
             animation: pulse 1s infinite alternate;
             filter: drop-shadow(0 0 5px #00f0ff) brightness(1.5);
@@ -243,6 +243,14 @@
             color: rgba(0, 240, 255, 0.7);
             margin-right: 5px;
         }
+        
+        /* Debug collision boxes */
+        .debug-hitbox {
+            position: absolute;
+            background-color: rgba(255, 0, 0, 0.3);
+            border: 1px solid red;
+            z-index: 100;
+        }
     </style>
 </head>
 <body class="flex flex-col items-center justify-center min-h-screen p-4">
@@ -294,7 +302,7 @@
     <div class="flex justify-between w-full max-w-md mt-4">
         <div class="flex items-center">
             <span class="tps-label">TPS:</span>
-            <span id="tpsCounter" class="tps-counter">1000</span>
+            <span id="tpsCounter" class="tps-counter">0</span>
         </div>
         <div class="flex items-center">
             <span class="text-xl mr-2">Speed:</span>
@@ -307,10 +315,10 @@
     <script>
         // Game variables
         let gameRunning = false;
-        let tps = 1000; // Starting TPS
+        let tps = 0; // Starting at 0 TPS
         let highTps = localStorage.getItem('highTps') || 0;
         let speed = 1;
-        let gameSpeed = 5;
+        let gameSpeed = 2; // Reduced base game speed
         let playerPosition = 1; // 0: left, 1: middle, 2: right
         let obstacles = [];
         let coins = [];
@@ -318,6 +326,7 @@
         let lastObstacleTime = 0;
         let lastCoinTime = 0;
         let lastMilestone = 0;
+        let debugMode = false; // Set to true to see hitboxes
         
         // DOM elements
         const gameContainer = document.querySelector('.game-container');
@@ -343,14 +352,10 @@
         document.addEventListener('keydown', (e) => {
             if (!gameRunning) return;
             
-            if (e.key === 'ArrowLeft' || e.key === 'a') {
+            if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'w' || e.key === 'W') {
                 movePlayer(-1);
-            } else if (e.key === 'ArrowRight' || e.key === 'd') {
+            } else if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 's' || e.key === 'S') {
                 movePlayer(1);
-            } else if (e.key === 'w' || e.key === 'W') {
-                movePlayer(-1); // W moves left
-            } else if (e.key === 's' || e.key === 'S') {
-                movePlayer(1); // S moves right
             }
         });
         
@@ -398,6 +403,17 @@
                 lane: lane,
                 y: -60
             });
+            
+            if (debugMode) {
+                const hitbox = document.createElement('div');
+                hitbox.className = 'debug-hitbox';
+                hitbox.style.width = '40px';
+                hitbox.style.height = '40px';
+                hitbox.style.left = `calc(${laneCenters[lane]} - 20px)`;
+                hitbox.style.top = '-60px';
+                gameContainer.appendChild(hitbox);
+                obstacle._debugHitbox = hitbox;
+            }
         }
         
         // Create coin
@@ -414,6 +430,17 @@
                 lane: lane,
                 y: -30
             });
+            
+            if (debugMode) {
+                const hitbox = document.createElement('div');
+                hitbox.className = 'debug-hitbox';
+                hitbox.style.width = '20px';
+                hitbox.style.height = '20px';
+                hitbox.style.left = `calc(${laneCenters[lane]} - 10px)`;
+                hitbox.style.top = '-30px';
+                gameContainer.appendChild(hitbox);
+                coin._debugHitbox = hitbox;
+            }
         }
         
         // Create coin collection effect
@@ -445,38 +472,59 @@
         }
         
         // Check collision between player and object
-        function checkCollision(playerPos, objPos, objHeight) {
-            // Player hitbox (adjusted to be more responsive)
-            const playerTop = 520; // Player's top position (bottom of screen - player height)
-            const playerBottom = 600; // Bottom of screen
-            const playerHitboxTop = playerTop + 10; // Smaller hitbox for more responsive collision
-            const playerHitboxBottom = playerBottom - 10;
+        function checkCollision(obj) {
+            // Player position and dimensions
+            const playerRect = player.getBoundingClientRect();
+            const gameRect = gameContainer.getBoundingClientRect();
             
-            // Object hitbox
-            const objTop = objPos.y;
-            const objBottom = objPos.y + objHeight;
+            // Player hitbox (smaller than visual representation)
+            const playerLeft = playerRect.left - gameRect.left + 15;
+            const playerRight = playerRect.right - gameRect.left - 15;
+            const playerTop = playerRect.top - gameRect.top + 15;
+            const playerBottom = playerRect.bottom - gameRect.top - 10;
             
-            // Check if object is within player's vertical range
-            return (objBottom > playerHitboxTop && objTop < playerHitboxBottom);
+            // Object position and dimensions
+            const objRect = obj.element.getBoundingClientRect();
+            const objLeft = objRect.left - gameRect.left;
+            const objRight = objRect.right - gameRect.left;
+            const objTop = objRect.top - gameRect.top;
+            const objBottom = objRect.bottom - gameRect.top;
+            
+            // Update debug hitbox if enabled
+            if (debugMode && obj.element._debugHitbox) {
+                obj.element._debugHitbox.style.left = `${objLeft}px`;
+                obj.element._debugHitbox.style.top = `${objTop}px`;
+            }
+            
+            // Check for collision
+            return !(
+                playerRight < objLeft ||
+                playerLeft > objRight ||
+                playerBottom < objTop ||
+                playerTop > objBottom
+            );
         }
         
         // Update game state
         function update() {
             const now = Date.now();
             
-            // Create new obstacles and coins
-            if (now - lastObstacleTime > 1500 / speed) {
+            // Create new obstacles and coins (slower spawn rate at start)
+            const obstacleInterval = tps < 100000 ? 3000 / speed : 1500 / speed;
+            const coinInterval = tps < 100000 ? 4000 / speed : 2000 / speed;
+            
+            if (now - lastObstacleTime > obstacleInterval) {
                 createObstacle();
                 lastObstacleTime = now;
             }
             
-            if (now - lastCoinTime > 2500 / speed) {
+            if (now - lastCoinTime > coinInterval) {
                 createCoin();
                 lastCoinTime = now;
             }
             
-            // Check for TPS milestones (every 2000 TPS)
-            if (tps >= lastMilestone + 2000) {
+            // Check for TPS milestones (every 100,000 TPS)
+            if (tps >= lastMilestone + 100000) {
                 lastMilestone = tps;
                 // Spawn additional obstacles when reaching milestones
                 for (let i = 0; i < 2; i++) {
@@ -491,10 +539,7 @@
                 obstacle.element.style.top = `${obstacle.y}px`;
                 
                 // Check collision with player
-                if (
-                    obstacle.lane === playerPosition && 
-                    checkCollision(playerPosition, obstacle, 60)
-                ) {
+                if (obstacle.lane === playerPosition && checkCollision(obstacle)) {
                     // Get obstacle position for crash effect
                     const rect = obstacle.element.getBoundingClientRect();
                     const gameRect = gameContainer.getBoundingClientRect();
@@ -509,6 +554,7 @@
                 // Remove if out of screen
                 if (obstacle.y > 600) {
                     obstacle.element.remove();
+                    if (obstacle._debugHitbox) obstacle._debugHitbox.remove();
                     obstacles.splice(i, 1);
                 }
             }
@@ -520,11 +566,8 @@
                 coin.element.style.top = `${coin.y}px`;
                 
                 // Check collision with player
-                if (
-                    coin.lane === playerPosition && 
-                    checkCollision(playerPosition, coin, 30)
-                ) {
-                    // Each coin collected adds 1000 TPS
+                if (coin.lane === playerPosition && checkCollision(coin)) {
+                    // Each coin collected adds 1000 TPS (changed from 10000)
                     tps += 1000;
                     tpsCounter.textContent = tps;
                     tpsCounter.classList.add('tps-pulse');
@@ -539,6 +582,7 @@
                     createCoinEffect(x, y);
                     
                     coin.element.remove();
+                    if (coin._debugHitbox) coin._debugHitbox.remove();
                     coins.splice(i, 1);
                     
                     // Visual feedback for coin collection
@@ -551,13 +595,15 @@
                 // Remove if out of screen
                 if (coin.y > 600) {
                     coin.element.remove();
+                    if (coin._debugHitbox) coin._debugHitbox.remove();
                     coins.splice(i, 1);
                 }
             }
             
-            // Increase speed based on TPS
-            speed = 1 + Math.floor(tps / 2000) * 0.2;
-            const speedPercentage = Math.min(100, (speed - 1) / 3 * 100);
+            // Increase speed based on TPS - now starts increasing immediately but at half the rate
+            speed = 1 + (tps / 200000); // Half the speed increase (200,000 TPS for +1 speed)
+            
+            const speedPercentage = Math.min(100, (speed - 1) * 100);
             speedGauge.style.width = `${speedPercentage}%`;
             
             animationId = requestAnimationFrame(update);
@@ -582,7 +628,7 @@
             highTpsDisplay.textContent = highTps;
             
             // Set final speed gauge
-            const speedPercentage = Math.min(100, (speed - 1) / 3 * 100);
+            const speedPercentage = Math.min(100, (speed - 1) * 100);
             finalSpeedGauge.style.width = `${speedPercentage}%`;
             
             gameOverScreen.classList.remove('hidden');
@@ -598,7 +644,7 @@
         function startGame() {
             // Reset game state
             gameRunning = true;
-            tps = 1000; // Reset to starting TPS
+            tps = 0; // Starting at 0 TPS
             speed = 1;
             playerPosition = 1;
             lastMilestone = 0;
@@ -611,8 +657,14 @@
             player.classList.add('running');
             
             // Clear obstacles and coins
-            obstacles.forEach(obstacle => obstacle.element.remove());
-            coins.forEach(coin => coin.element.remove());
+            obstacles.forEach(obstacle => {
+                obstacle.element.remove();
+                if (obstacle._debugHitbox) obstacle._debugHitbox.remove();
+            });
+            coins.forEach(coin => {
+                coin.element.remove();
+                if (coin._debugHitbox) coin._debugHitbox.remove();
+            });
             obstacles = [];
             coins = [];
             
